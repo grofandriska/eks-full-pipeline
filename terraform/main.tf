@@ -41,7 +41,7 @@ module "eks" {
     }
   }
 
-   kms_key_administrators = [
+  kms_key_administrators = [
     "arn:aws:iam::362099375729:user/andrasgrof93@gmail.com",
     aws_iam_role.gha.arn,
   ]
