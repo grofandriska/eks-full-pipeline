@@ -1,0 +1,44 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform-apply.yml"
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - name: CHECKOUT
+        uses: actions/checkout@v7
+
+      - name: AWS LOGIN
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: SETUP TERRAFORM
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.17.2"
+
+      - name: TERRAFORM FMT
+        run: terraform fmt -check -recursive
+
+      - name: TERRAFORM INIT
+        run: terraform init
+
+      - name: TERRAFORM VALIDATE
+        run: terraform validate
+
+      - name: TERRAFORM APPLY
+        run: terraform apply -auto-approve
