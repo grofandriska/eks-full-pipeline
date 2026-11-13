@@ -1,0 +1,68 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - ".github/workflows/build-and-push.yml"
+
+env:
+  REGISTRY: 362099375729.dkr.ecr.eu-central-1.amazonaws.com
+  REPO_PREFIX: bandi-eks-task
+  CLUSTER_NAME: bandi-eks-task-cluster
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        service: [service-a, service-b]
+    steps:
+      - name: CHECKOUT
+        uses: actions/checkout@v7
+
+      - name: AWS LOGIN
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: ECR LOGIN
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: BUILD AND PUSH
+        run: |
+          IMAGE=$REGISTRY/$REPO_PREFIX/${{ matrix.service }}:${{ github.sha }}
+          docker build -t $IMAGE src/${{ matrix.service }}
+          docker push $IMAGE
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: AWS LOGIN
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: KUBECONFIG
+        run: aws eks update-kubeconfig --name $CLUSTER_NAME --region ${{ vars.AWS_REGION }}
+
+      - name: DEPLOY
+        run: |
+          for s in service-a service-b; do
+            kubectl set image deployment/$s $s=$REGISTRY/$REPO_PREFIX/$s:${{ github.sha }}
+          done
+
+      - name: WAIT FOR ROLLOUT
+        run: |
+          kubectl rollout status deployment/service-a --timeout=180s
+          kubectl rollout status deployment/service-b --timeout=180s
