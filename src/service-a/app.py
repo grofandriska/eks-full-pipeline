@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 @app.route("/api/sa")
 def hello():
-    return f"Hello from Service A! (pod: {socket.gethostname()})\n"
+    return f"Hello from Service Av2! (pod: {socket.gethostname()})\n"
 
 
 @app.route("/health")
